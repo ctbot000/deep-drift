@@ -42,7 +42,9 @@ window.addEventListener('resize', resize);
 let memorySave = null;
 
 function save() {
-  if (!state) return;
+  // The title screen runs a placeholder world behind the card. Saving that
+  // would offer a first-time visitor "Continue" for a game they never started.
+  if (!state || !started) return;
   const data = serialize(state);
   memorySave = data;
   try {
