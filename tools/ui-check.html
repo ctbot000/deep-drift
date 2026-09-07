@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deep Drift UI check</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  body { overflow: auto; height: auto; }
+  #panel { position: static; transform: none; margin: 14px auto; max-height: none; }
+  h3.sep { color: #e0a33c; font: 11px ui-monospace, monospace; letter-spacing: .12em;
+           text-transform: uppercase; margin: 20px 0 0; text-align: center; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="hud-left">
+    <div class="gauge" id="bar-fuel"><span class="tag">FUEL</span><span class="track"><span class="fill"></span></span><span class="val"></span></div>
+    <div class="gauge" id="bar-hull"><span class="tag">HULL</span><span class="track"><span class="fill"></span></span><span class="val"></span></div>
+    <div class="gauge" id="bar-cargo"><span class="tag">HOLD</span><span class="track"><span class="fill"></span></span><span class="val"></span></div>
+  </div>
+  <div class="hud-right">
+    <div class="stat"><span class="k">CASH</span><span class="v" id="money">$0</span></div>
+    <div class="stat"><span class="k">HAUL</span><span class="v" id="haul">—</span></div>
+    <div class="stat"><span class="k">DEPTH</span><span class="v" id="depth">0 m</span></div>
+    <div class="stat sub"><span class="k">BEST</span><span class="v" id="best">0 m</span></div>
+    <div class="stat core hidden" id="core-bearing"><span class="k">CORE</span><span class="v"></span></div>
+  </div>
+  <div class="hud-items">
+    <div class="item" id="item-teleport"><b>1</b> Beacon <span class="count">0</span></div>
+    <div class="item" id="item-repair"><b>2</b> Patch <span class="count">0</span></div>
+    <div class="item" id="item-fuelcell"><b>3</b> Cell <span class="count">0</span></div>
+  </div>
+</div>
+<div id="prompt" class="hidden"></div>
+<ul id="toasts"></ul>
+<div id="stage"></div>
+
+<script type="module">
+// Dev-only: renders every base panel at once so the shop UI can be reviewed
+// without playing to the surface.
+import { PADS, ORES } from '../js/config.js';
+import { createGame, buyUpgrade, buyItem } from '../js/sim.js';
+import { updateHud, togglePanel, closePanel } from '../js/ui.js';
+
+const state = createGame(7);
+state.money = 26400;
+state.player.fuel = 118;
+state.player.hull = 141;
+state.coreKnown = true;
+state.depth = 208;
+state.stats.deepest = 233;
+for (let i = 0; i < 2; i++) {
+  for (const k of ['drill', 'fuel', 'hull', 'cargo', 'engine', 'scanner']) {
+    const m = state.money; state.money = 1e9; buyUpgrade(state, k); state.money = m;
+  }
+}
+state.money = 26400;
+buyItem(state, 'teleport'); buyItem(state, 'teleport'); buyItem(state, 'fuelcell');
+state.money = 26400;
+[1, 3, 5, 6, 7].forEach((i) => { state.cargo[i] = 2 + i; state.cargoCount += 2 + i; });
+state.toasts.push({ text: 'Sold 7x Emerald, 4x Gold for $14,600.', kind: 'good', until: 1e9 });
+state.toasts.push({ text: 'Gas pocket!', kind: 'bad', until: 1e9 });
+state.time = 0;
+
+const stage = document.getElementById('stage');
+for (const pad of PADS) {
+  const h = document.createElement('h3');
+  h.className = 'sep';
+  h.textContent = pad.name;
+  stage.appendChild(h);
+
+  const holder = document.createElement('div');
+  holder.innerHTML = `<div id="panel"><header><h2 id="panel-title"></h2><span id="panel-money"></span>
+    <button id="panel-close">✕</button></header><div id="panel-body"></div>
+    <footer>Press <b>E</b> or <b>Esc</b> to step away</footer></div>`;
+  stage.appendChild(holder);
+
+  state.nearPad = pad;
+  closePanel();
+  togglePanel(state);          // builds into the ids present right now
+  holder.querySelector('#panel').classList.remove('hidden');
+  // Rename ids so the next pad's panel gets fresh ones.
+  holder.querySelectorAll('[id]').forEach((n) => { n.id = n.id + '-' + pad.key; });
+}
+state.nearPad = PADS[0];
+updateHud(state);
+</script>
+</body>
+</html>

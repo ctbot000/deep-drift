@@ -1,0 +1,11 @@
+# Local agent state
+.claude/
+
+# OS and editor junk
+.DS_Store
+._*
+*.swp
+Thumbs.db
+
+# Node
+node_modules/

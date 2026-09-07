@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deep Drift render check</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0a10; }
+  canvas { display: block; }
+  #cap { position: fixed; left: 8px; bottom: 8px; color: #9a97ab;
+         font: 12px ui-monospace, monospace; background: rgba(0,0,0,.6); padding: 4px 8px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cap"></div>
+<script type="module">
+// Dev-only: steps the simulation directly (no requestAnimationFrame, which a
+// hidden surface never delivers) and draws a single frame, so the renderer can
+// be inspected at any depth.
+import { createGame, newInput, step, buyUpgrade } from '../js/sim.js';
+import { render } from '../js/render.js';
+
+const SCENES = {
+  1: { label: 'surface',        seed: 7, secs: 0.2,  tiers: 0 },
+  2: { label: 'shallow shaft',  seed: 7, secs: 30,   tiers: 0 },
+  3: { label: 'mid depth',      seed: 7, secs: 95,   tiers: 2 },
+  4: { label: 'deep, big rig',  seed: 3, secs: 230,  tiers: 4 },
+};
+const n = new URLSearchParams(location.search).get('scene') || '1';
+const sc = SCENES[n] || SCENES[1];
+
+const state = createGame(sc.seed);
+state.money = 1e6;
+for (let i = 0; i < sc.tiers; i++) {
+  for (const k of ['drill', 'fuel', 'scanner', 'hull', 'engine', 'cargo']) buyUpgrade(state, k);
+}
+state.money = 4820;
+const input = newInput();
+input.down = true;
+for (let i = 0, n2 = Math.round(sc.secs * 120); i < n2; i++) step(state, 1 / 120, input);
+
+const cv = document.getElementById('c');
+const q = new URLSearchParams(location.search);
+const dpr = 1;
+// A hidden pane lays out as 0x0, so take the size from the query, not the DOM.
+const w = Number(q.get('w')) || 1000, h = Number(q.get('h')) || 560;
+cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+render(cv.getContext('2d', { alpha: false }), state, w, h, dpr);
+document.getElementById('cap').textContent =
+  `${sc.label} — ${w}x${h} @${dpr}x — depth ${state.depth.toFixed(0)}m, fuel ${state.player.fuel.toFixed(0)}, ` +
+  `hull ${state.player.hull.toFixed(0)}, cargo ${state.cargoCount}, coreKnown ${state.coreKnown}`;
+</script>
+</body>
+</html>

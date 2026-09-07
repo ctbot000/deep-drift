@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Deep Drift — a mining game</title>
+<meta name="description" content="Dig a hole, get rich, upgrade the rig, go deeper. A browser mining game with no dependencies.">
+<meta name="theme-color" content="#0b0a10">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230b0a10'/><rect x='8' y='6' width='16' height='14' fill='%23e0a33c'/><rect x='13' y='20' width='6' height='7' fill='%23cfd6e0'/></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- ------------------------------------------------------------------ HUD -->
+<div id="hud">
+  <div class="hud-left">
+    <div class="gauge" id="bar-fuel"><span class="tag">FUEL</span><span class="track"><span class="fill"></span></span><span class="val"></span></div>
+    <div class="gauge" id="bar-hull"><span class="tag">HULL</span><span class="track"><span class="fill"></span></span><span class="val"></span></div>
+    <div class="gauge" id="bar-cargo"><span class="tag">HOLD</span><span class="track"><span class="fill"></span></span><span class="val"></span></div>
+  </div>
+  <div class="hud-right">
+    <div class="stat"><span class="k">CASH</span><span class="v" id="money">$0</span></div>
+    <div class="stat"><span class="k">HAUL</span><span class="v" id="haul">—</span></div>
+    <div class="stat"><span class="k">DEPTH</span><span class="v" id="depth">0 m</span></div>
+    <div class="stat sub"><span class="k">BEST</span><span class="v" id="best">0 m</span></div>
+    <div class="stat core hidden" id="core-bearing"><span class="k">CORE</span><span class="v"></span></div>
+    <div class="tools">
+      <button id="mute" title="Mute (M)">🔊</button>
+      <button id="pause-btn" title="Pause (Esc)">⏸</button>
+    </div>
+  </div>
+  <div class="hud-items">
+    <div class="item" id="item-teleport"><b>1</b> Beacon <span class="count">0</span></div>
+    <div class="item" id="item-repair"><b>2</b> Patch <span class="count">0</span></div>
+    <div class="item" id="item-fuelcell"><b>3</b> Cell <span class="count">0</span></div>
+  </div>
+</div>
+
+<div id="prompt" class="hidden"></div>
+<ul id="toasts"></ul>
+
+<!-- -------------------------------------------------------- touch controls -->
+<div id="touch">
+  <div class="pad">
+    <button id="t-left" aria-label="Left">◀</button>
+    <button id="t-down" aria-label="Drill down">▼</button>
+    <button id="t-right" aria-label="Right">▶</button>
+  </div>
+  <div class="pad right">
+    <button id="t-act" aria-label="Interact">E</button>
+    <button id="t-up" class="thrust" aria-label="Thrust">▲</button>
+  </div>
+</div>
+
+<!-- ---------------------------------------------------------- base panel -->
+<div id="panel" class="hidden">
+  <header>
+    <h2 id="panel-title"></h2>
+    <span id="panel-money"></span>
+    <button id="panel-close" aria-label="Close">✕</button>
+  </header>
+  <div id="panel-body"></div>
+  <footer>Press <b>E</b> or <b>Esc</b> to step away</footer>
+</div>
+
+<!-- --------------------------------------------------------------- title -->
+<div id="title" class="screen">
+  <div class="card">
+    <h1>DEEP<span>DRIFT</span></h1>
+    <p class="tagline">Dig a hole. Get rich. Buy a bigger drill. Find out what is humming at 250&nbsp;metres.</p>
+    <div class="buttons">
+      <button id="continue" class="primary hidden">Continue<span class="sub"></span></button>
+      <button id="new-game" class="primary">New expedition</button>
+      <button id="how-to">How to play</button>
+    </div>
+    <p class="credit">No downloads, no dependencies. Arrow keys or WASD.</p>
+  </div>
+</div>
+
+<!-- ----------------------------------------------------------------- help -->
+<div id="help" class="screen hidden">
+  <div class="card wide">
+    <h2>How to play</h2>
+    <div class="cols">
+      <div>
+        <h3>Controls</h3>
+        <ul class="keys">
+          <li><b>◀ ▶ / A D</b><span>Move, and drill sideways into rock</span></li>
+          <li><b>▼ / S</b><span>Drill straight down</span></li>
+          <li><b>▲ / W / Space</b><span>Thrusters — the only way back up</span></li>
+          <li><b>E</b><span>Use the building you are standing on</span></li>
+          <li><b>1 2 3</b><span>Beacon · Patch kit · Fuel cell</span></li>
+          <li><b>R</b><span>Call a rescue tug when stranded</span></li>
+          <li><b>Esc · H · M</b><span>Pause · help · mute</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>The loop</h3>
+        <p>Drill down, fill the hold with ore, fly back to the surface and sell it. Spend the money on a drill that bites harder rock, a tank that gets you deeper, and a hold that makes the trip worth it.</p>
+        <h3>Things that will kill you</h3>
+        <ul class="bullets">
+          <li><b>Falling.</b> Long drops into open caves hurt.</li>
+          <li><b>Magma.</b> Bright orange, and it does not care about your hull.</li>
+          <li><b>Gas pockets.</b> The green ones detonate when the tile next to them goes.</li>
+          <li><b>Running dry.</b> No fuel means no thrusters, and the surface is a long way up.</li>
+        </ul>
+        <p class="muted">You cannot drill upwards — plan a way home before you spend the last of the tank.</p>
+      </div>
+    </div>
+    <button id="help-close" class="primary">Got it</button>
+  </div>
+</div>
+
+<!-- ---------------------------------------------------------------- pause -->
+<div id="paused" class="screen hidden">
+  <div class="card">
+    <h2>Paused</h2>
+    <p class="muted">Progress is saved automatically.</p>
+    <button id="resume" class="primary">Resume</button>
+  </div>
+</div>
+
+<!-- ------------------------------------------------------------------ win -->
+<div id="win" class="screen hidden">
+  <div class="card">
+    <h1 class="won">THE CORE</h1>
+    <p class="tagline">Two hundred and fifty metres down, the humming stops. You are the only person who has ever heard it.</p>
+    <ul id="win-stats" class="stats"></ul>
+    <button id="win-again" class="primary">Dig another one</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
