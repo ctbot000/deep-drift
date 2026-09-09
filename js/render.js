@@ -1,4 +1,5 @@
-// Canvas rendering. Nothing here mutates game state.
+// Canvas 2D renderer — the fallback when WebGL2 is unavailable.
+// Nothing here mutates game state.
 
 import {
   TILE, T, SURFACE_ROW, WORLD_W, WORLD_H, PADS, PHYS, scanOf,
@@ -21,9 +22,7 @@ const ROCK_COLORS = {
 const camera = { x: 0, y: 0, zoom: 1 };
 let dark = null, darkCtx = null;
 
-export function getCamera() { return camera; }
-
-export function computeZoom(cssW, cssH) {
+function computeZoom(cssW, cssH) {
   const z = Math.min(cssW / (21 * TILE), cssH / (14 * TILE));
   return Math.max(0.62, Math.min(2.3, z));
 }
@@ -34,7 +33,7 @@ function hash2(x, y) {
   return h;
 }
 
-export function render(ctx, state, cssW, cssH, dpr, alpha = 1) {
+function draw(ctx, state, cssW, cssH, dpr) {
   const p = state.player;
   const c = playerCenter(p);
   camera.zoom = computeZoom(cssW, cssH);
@@ -68,7 +67,6 @@ export function render(ctx, state, cssW, cssH, dpr, alpha = 1) {
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawDarkness(ctx, state, cssW, cssH, dpr);
-  drawDepthGauge(ctx, state, cssW, cssH);
 }
 
 /* --------------------------------------------------------------- sky/base */
@@ -403,25 +401,12 @@ function drawDarkness(ctx, state, w, h, dpr) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function drawDepthGauge(ctx, state, w, h) {
-  const x = w - 16, top = h * 0.18, bottom = h * 0.82;
-  ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.fillRect(x - 4, top - 8, 8, bottom - top + 16);
-  ctx.fillStyle = 'rgba(255,255,255,0.16)';
-  for (let d = 0; d <= 250; d += 50) {
-    const y = top + (bottom - top) * (d / 255);
-    ctx.fillRect(x - 8, y, 16, 1);
-  }
-  const my = top + (bottom - top) * Math.min(1, state.stats.deepest / 255);
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  ctx.fillRect(x - 7, my, 14, 1.5);
 
-  const py = top + (bottom - top) * Math.min(1, state.depth / 255);
-  ctx.fillStyle = '#e0a33c';
-  ctx.beginPath();
-  ctx.moveTo(x - 7, py); ctx.lineTo(x + 7, py - 4); ctx.lineTo(x + 7, py + 4);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+/* ------------------------------------------------------------------ facade */
+
+export function createRenderer2D(ctx) {
+  return {
+    render: (state, cssW, cssH, dpr) => draw(ctx, state, cssW, cssH, dpr),
+    mode: '2d',
+  };
 }

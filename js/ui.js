@@ -8,6 +8,8 @@ import {
 } from './sim.js';
 import { sfx } from './audio.js';
 
+const GAUGE_MAX = 255;
+
 const $ = (id) => document.getElementById(id);
 // The pad is captured when the panel opens: reading state.nearPad live would
 // empty the panel the moment the rig drifts off the pad.
@@ -80,7 +82,48 @@ export function updateHud(state) {
     list.appendChild(li);
   }
 
+  updateGauge(state);
   if (openPad) refreshPanelNumbers(state);
+}
+
+function updateGauge(state) {
+  const pct = (d) => (Math.min(GAUGE_MAX, Math.max(0, d)) / GAUGE_MAX) * 100;
+  $('gauge-now').style.top = pct(state.depth) + '%';
+  $('gauge-best').style.top = pct(state.stats.deepest) + '%';
+}
+
+/* --------------------------------------------------------------- floaters */
+
+// Ore names pop above the block they came from. In 3D the position has to be
+// projected, so the labels live in the DOM for both renderers.
+const floaterPool = [];
+
+export function updateFloaters(state, project) {
+  const layer = $('floaters');
+  if (!project) { layer.classList.add('hidden'); return; }
+  layer.classList.remove('hidden');
+
+  let used = 0;
+  for (const f of state.fx) {
+    if (!f.text) continue;
+    const pt = project(f.x / TILE, -f.y / TILE, 0.6);
+    if (!pt) continue;
+    let el = floaterPool[used];
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'floater';
+      layer.appendChild(el);
+      floaterPool.push(el);
+    }
+    const life = (f.until - state.time) / Math.max(0.001, f.until - f.born);
+    el.textContent = f.text;
+    el.style.color = f.color;
+    el.style.opacity = Math.max(0, Math.min(1, life)).toFixed(2);
+    el.style.transform = `translate(-50%,-50%) translate(${pt.x.toFixed(1)}px, ${pt.y.toFixed(1)}px)`;
+    el.hidden = false;
+    used++;
+  }
+  for (let i = used; i < floaterPool.length; i++) floaterPool[i].hidden = true;
 }
 
 function bar(name, frac, label) {

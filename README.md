@@ -1,12 +1,14 @@
 # Deep Drift
 
-A browser mining game. Dig a hole, get rich, buy a bigger drill, and find out
-what is humming at 250 metres.
+A browser mining game in 3D. Dig a hole, get rich, buy a bigger drill, and find
+out what is humming at 250 metres.
 
 **▶ [Play it](https://ctbot000.github.io/deep-drift/)**
 
 No build step, no dependencies, no assets — the whole game is a few files of
-JavaScript, and every sound and sprite is generated at runtime.
+JavaScript. The world is drawn as instanced voxels in raw WebGL2 (no Three.js,
+no import map), the sounds are a WebAudio synth, and the only thing loaded over
+the network is the source itself.
 
 ---
 
@@ -43,6 +45,17 @@ Touch controls appear automatically on phones and tablets.
 A wreck is survivable: the salvage crew tows you up and recovers about a third
 of the load. Running out of fuel is survivable too — a rescue tug costs a
 quarter of your cash, and never strands you permanently.
+
+### The look
+
+Rock is a solid slab of blocks facing the camera, and everything you have dug is
+a corridor carved into it — so the shaft behind you is a real trench with walls,
+lit by the rig's headlamp. Ambient light drains away with depth until the lamp
+is all you have. Ore crystals, lava and the Core are emissive, which is why you
+can spot a diamond in the dark before you can see the rock around it.
+
+If WebGL2 is unavailable the game falls back to a flat canvas-2D renderer with
+the same framing and the same rules.
 
 ### The world
 
@@ -83,10 +96,12 @@ css/style.css       all styling
 js/config.js        tiles, ores, upgrades, physics constants — pure data
 js/world.js         seeded world generation, fog of war
 js/sim.js           game state and the fixed-step simulation
-js/render.js        canvas rendering
-js/ui.js            HUD and the base panels
+js/render3d.js      WebGL2 voxel renderer
+js/mat4.js          the four matrix operations that renderer needs
+js/render.js        canvas-2D renderer, used when WebGL2 is missing
+js/ui.js            HUD, depth gauge and the base panels
 js/audio.js         WebAudio synth — no sound files
-js/main.js          canvas, input, game loop, saving
+js/main.js          renderer selection, input, game loop, saving
 tools/balance.mjs   headless playtest bot
 tools/*.html        dev-only render and UI inspection pages
 ```
@@ -130,8 +145,16 @@ A few things that were less obvious than they looked:
 - **The simulation runs on its own accumulated clock**, never on wall time, and
   every particle and toast expires against it. A hidden tab delivers no
   animation frames, and effects counted in frames simply freeze on screen.
-- **The camera snaps to whole device pixels.** A fractional offset seams every
-  tile edge while the view moves, and only while it moves.
+- **A headlamp on a flat wall needs wrapped diffuse.** Almost every surface the
+  player sees is a front face with the same normal, so a textbook `N·L`
+  terminator leaves everything more than a few tiles out unlit however bright
+  the lamp is. Softening the term, and pushing the lamp well in front of the
+  rock face, is what makes the light pool read as a pool.
+- **Palettes do not survive a change of shading model.** The rock colours were
+  picked against flat 2D fills; run through diffuse lighting and distance fog
+  they came out near-black, and every deep band had to be brightened.
+- **The 2D fallback snaps its camera to whole device pixels.** A fractional
+  offset seams every tile edge while the view moves, and only while it moves.
 - **A collapsed canvas measures 0×0**, and every value derived from it — zoom,
   viewport, camera clamp — is nonsense from there, so the measurement has a
   floor.

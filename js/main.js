@@ -3,17 +3,36 @@
 import {
   createGame, newInput, step, serialize, deserialize,
 } from './sim.js';
-import { render } from './render.js';
-import { updateHud, togglePanel, closePanel, isPanelOpen, useItemKey, tryRescue } from './ui.js';
+import { createRenderer2D } from './render.js';
+import { createRenderer3D } from './render3d.js';
+import {
+  updateHud, updateFloaters, togglePanel, closePanel, isPanelOpen, useItemKey, tryRescue,
+} from './ui.js';
 import { ensureAudio, sfx, setThrust, setEnabled, isEnabled } from './audio.js';
 
 const SAVE_KEY = 'deepdrift.save.v1';
 const FIXED_DT = 1 / 120;
 const MAX_FRAME_DT = 0.25;
 
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d', { alpha: false });
 const $ = (id) => document.getElementById(id);
+
+// Prefer the WebGL2 renderer; fall back to canvas 2D if the context or the
+// shaders are unavailable. A canvas keeps the first context type it is given,
+// so falling back means replacing the element.
+let canvas = $('game');
+let renderer;
+try {
+  const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, powerPreference: 'high-performance' });
+  if (!gl) throw new Error('no webgl2 context');
+  renderer = createRenderer3D(gl);
+} catch (err) {
+  console.warn('Falling back to the 2D renderer:', err.message);
+  const fresh = canvas.cloneNode(false);
+  canvas.replaceWith(fresh);
+  canvas = fresh;
+  renderer = createRenderer2D(canvas.getContext('2d', { alpha: false }));
+}
+document.body.dataset.renderer = renderer.mode;
 
 let state = null;
 let input = newInput();
@@ -95,8 +114,9 @@ function frame(now) {
   }
 
   if (state) {
-    render(ctx, state, cssW, cssH, dpr);
+    renderer.render(state, cssW, cssH, dpr);
     updateHud(state);
+    updateFloaters(state, renderer.project);
     if (state.status === 'won' && $('win').classList.contains('hidden')) showWin();
   }
 }

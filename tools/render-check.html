@@ -18,7 +18,8 @@
 // hidden surface never delivers) and draws a single frame, so the renderer can
 // be inspected at any depth.
 import { createGame, newInput, step, buyUpgrade } from '../js/sim.js';
-import { render } from '../js/render.js';
+import { createRenderer3D } from '../js/render3d.js';
+import { createRenderer2D } from '../js/render.js';
 
 const SCENES = {
   1: { label: 'surface',        seed: 7, secs: 0.2,  tiers: 0 },
@@ -45,10 +46,25 @@ const dpr = 1;
 // A hidden pane lays out as 0x0, so take the size from the query, not the DOM.
 const w = Number(q.get('w')) || 1000, h = Number(q.get('h')) || 560;
 cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-render(cv.getContext('2d', { alpha: false }), state, w, h, dpr);
+cv.style.width = w + 'px'; cv.style.height = h + 'px';
+
+let renderer, note = '';
+if (q.get('mode') === '2d') {
+  renderer = createRenderer2D(cv.getContext('2d', { alpha: false }));
+} else {
+  // preserveDrawingBuffer: this page draws one frame instead of running a
+  // render loop, so the buffer must survive until the screenshot.
+  const gl = cv.getContext('webgl2', { alpha: false, antialias: true, preserveDrawingBuffer: true });
+  if (gl) {
+    try { renderer = createRenderer3D(gl); }
+    catch (e) { note = ' — 3D FAILED: ' + e.message; }
+  } else note = ' — no webgl2';
+}
+if (renderer) renderer.render(state, w, h, dpr);
 document.getElementById('cap').textContent =
-  `${sc.label} — ${w}x${h} @${dpr}x — depth ${state.depth.toFixed(0)}m, fuel ${state.player.fuel.toFixed(0)}, ` +
-  `hull ${state.player.hull.toFixed(0)}, cargo ${state.cargoCount}, coreKnown ${state.coreKnown}`;
+  `${sc.label} [${renderer ? renderer.mode : 'none'}] ${w}x${h} — depth ${state.depth.toFixed(0)}m, ` +
+  `fuel ${state.player.fuel.toFixed(0)}, hull ${state.player.hull.toFixed(0)}, ` +
+  `cargo ${state.cargoCount}, coreKnown ${state.coreKnown}${note}`;
 </script>
 </body>
 </html>
